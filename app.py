@@ -28,10 +28,13 @@ if 'store' not in st.session_state:
 # Proceed only if both API keys are provided
 if hf_api_key and groq_api_key:
     try:
-        # Initialize embeddings
-        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2", api_key=hf_api_key)
+        # Set HuggingFace API key as an environment variable
+        os.environ["HUGGINGFACE_API_KEY"] = hf_api_key
 
-        # Initialize LLM
+        # Initialize embeddings (HuggingFace will pick up the API key from the environment)
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+        # Initialize LLM with Groq API key
         llm = ChatGroq(groq_api_key=groq_api_key, model_name="Gemma2-9b-It")
 
         # File uploader
