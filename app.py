@@ -6,26 +6,34 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_groq import ChatGroq
-from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.runnables.history import RunnableWithMessageHistory
 import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Set up embeddings
-os.environ['HUGGINGFACE_API_KEY'] = os.getenv("HUGGINGFACE_API_KEY")
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 # Streamlit UI setup
-st.title("Conversational RAG With PDF Uploads and Chat History")
-st.write("Upload PDFs and chat with their content")
+st.title("Conversational RAG with PDF Uploads and Chat History")
+st.write("Upload PDFs and chat with their content.")
+
+# Load API keys from Streamlit Secrets
+huggingface_api_key = st.secrets.get("HUGGINGFACE_API_KEY")
+groq_api_key = st.secrets.get("GROQ_API_KEY")
+
+# Validate API keys
+if not huggingface_api_key:
+    st.error("🚨 HUGGINGFACE_API_KEY is missing in Streamlit Secrets.")
+if not groq_api_key:
+    st.error("🚨 GROQ_API_KEY is missing in Streamlit Secrets.")
+
+# Initialize HuggingFace embeddings
+embeddings = HuggingFaceEmbeddings(
+    model_name="all-MiniLM-L6-v2",
+    huggingface_api_key=huggingface_api_key
+)
 
 # Input the Groq API Key
-api_key = st.text_input("Enter your Groq API key:", type="password")
+api_key = st.text_input("Enter your Groq API key:", type="password", value=groq_api_key)
 
 if api_key:
     llm = ChatGroq(groq_api_key=api_key, model_name="Gemma2-9b-It")
@@ -72,6 +80,7 @@ if api_key:
         question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
         rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
+        # Chat history session management
         def get_session_history(session: str) -> BaseChatMessageHistory:
             if session not in st.session_state.store:
                 st.session_state.store[session] = ChatMessageHistory()
@@ -84,6 +93,7 @@ if api_key:
             output_messages_key="answer"
         )
 
+        # User interaction
         user_input = st.text_input("Your question:")
         if user_input:
             session_history = get_session_history(session_id)
@@ -91,7 +101,7 @@ if api_key:
                 {"input": user_input},
                 config={"configurable": {"session_id": session_id}}
             )
-            st.write("Assistant:", response['answer'])
-            st.write("Chat History:", session_history.messages)
+            st.write("**Assistant:**", response['answer'])
+            st.write("**Chat History:**", session_history.messages)
 else:
-    st.warning("Please enter the Groq API Key")
+    st.warning("🚨 Please enter the Groq API Key.")
